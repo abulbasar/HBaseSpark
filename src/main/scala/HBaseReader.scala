@@ -27,11 +27,8 @@ object HBaseReader {
                 , classOf[TableInputFormat]
                 , classOf[ImmutableBytesWritable]
                 , classOf[Result])
-    
-    val stocks = hbaseStocksRdd.map{case (key: ImmutableBytesWritable, value: Result) => 
-      StockType.parse(value)
-    }.toDS.as[StockType]
-    
+                
+    val stocks = hbaseStocksRdd.map(pair => StockType(pair._2)).toDS
     stocks.show()
 
   }

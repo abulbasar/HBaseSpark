@@ -5,56 +5,57 @@ import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.client.Result
 import java.text.SimpleDateFormat
 import java.nio.ByteBuffer
+import scala.reflect.ClassTag
+import scala.tools.cmd.Opt.Implicit
 
-case class StockType(date:java.sql.Date
-    ,open:Double
-    ,high:Double
-    ,low:Double
-    ,close:Double
-    ,volume:Double
-    ,adjclose:Double
-    ,symbol:String){
- 
+case class StockType(date: java.sql.Date, open: Double, high: Double, low: Double, close: Double, volume: Double, adjclose: Double, symbol: String) {
+
+  def toBytes = StockType.toBytes(_)
+  
+  implicit def dateToString(date:java.sql.Date) = date.toString()
+
   def toPut = {
-    val put = new Put(Bytes.toBytes(date.toString() + " " + symbol))
-    put.addColumn(StockType.cfInfo, StockType.colDate, Bytes.toBytes(date.toString()))
-    put.addColumn(StockType.cfInfo, StockType.colOpen, Bytes.toBytes(open))
-    put.addColumn(StockType.cfInfo, StockType.colClose, Bytes.toBytes(close))
-    put.addColumn(StockType.cfInfo, StockType.colHigh, Bytes.toBytes(high))
-    put.addColumn(StockType.cfInfo, StockType.colLow, Bytes.toBytes(low))
-    put.addColumn(StockType.cfInfo, StockType.colAdjClose, Bytes.toBytes(adjclose))
-    put.addColumn(StockType.cfInfo, StockType.colVol, Bytes.toBytes(volume))
-    put.addColumn(StockType.cfInfo, StockType.colSymbol, Bytes.toBytes(symbol))
-    put
+
+    val cf = toBytes("info")
+    new Put(toBytes(date.toString() + " " + symbol))
+      .addColumn(cf, toBytes("date"), Bytes.toBytes(date))
+      .addColumn(cf, toBytes("open"), Bytes.toBytes(open))
+      .addColumn(cf, toBytes("close"), Bytes.toBytes(close))
+      .addColumn(cf, toBytes("high"), Bytes.toBytes(high))
+      .addColumn(cf, toBytes("low"), Bytes.toBytes(low))
+      .addColumn(cf, toBytes("adjclose"), Bytes.toBytes(adjclose))
+      .addColumn(cf, toBytes("volume"), Bytes.toBytes(volume))
+      .addColumn(cf, toBytes("symbol"), Bytes.toBytes(symbol))
   }
 }
 
-object StockType{  
-  val cfInfo = Bytes.toBytes("info")
-  val colDate = Bytes.toBytes("date")
-  val colOpen = Bytes.toBytes("open")
-  val colHigh = Bytes.toBytes("high")
-  val colLow = Bytes.toBytes("low")
-  val colClose = Bytes.toBytes("close")
-  val colAdjClose = Bytes.toBytes("adjclose")
-  val colVol = Bytes.toBytes("volume")
-  val colSymbol = Bytes.toBytes("symbol")
-  
-  val sdf = new SimpleDateFormat("yyyy-MM-dd")
+object StockType {
  
-  
-  def parse(result:Result):StockType = {
+  def toBytes(name: String) = Bytes.toBytes(name)
 
-    val date = new java.sql.Date(sdf.parse(new String(result.getValue(cfInfo, colDate))).getTime)
-    val open = ByteBuffer.wrap(result.getValue(cfInfo, colOpen)).getDouble
-    val high = ByteBuffer.wrap(result.getValue(cfInfo, colHigh)).getDouble
-    val low = ByteBuffer.wrap(result.getValue(cfInfo, colLow)).getDouble
-    val close = ByteBuffer.wrap(result.getValue(cfInfo, colClose)).getDouble
-    val adjClose = ByteBuffer.wrap(result.getValue(cfInfo, colAdjClose)).getDouble
-    val volume = ByteBuffer.wrap(result.getValue(cfInfo, colVol)).getDouble
-    val symbol = new String(result.getValue(cfInfo, colSymbol))
-    
-    StockType(date, open, high, low, close, adjClose, volume, symbol)
+  val sdf = new SimpleDateFormat("yyyy-MM-dd")
+  
+  implicit def bytebufferToDouble(bytes: ByteBuffer) = bytes.getDouble
+  implicit def bytebufferToString(bytes: ByteBuffer) = new String(bytes.array())
+  implicit def bytebufferToDate(bytes: ByteBuffer) = new java.sql.Date(sdf.parse(bytes).getTime)
+  
+  def fromBytes(result: Result, cf: String, identifier: String) = {
+    val buffer = ByteBuffer.wrap(result.getValue(toBytes(cf), toBytes(identifier)))
+    buffer
+  }
+
+  def apply(result: Result): StockType = {
+
+    val date = fromBytes(result, "info", "date")
+    val open = fromBytes(result, "info", "open")
+    val high = fromBytes(result, "info", "high")
+    val low = fromBytes(result, "info", "low")
+    val close = fromBytes(result, "info", "close")
+    val adjClose = fromBytes(result, "info", "adjclose")
+    val volume = fromBytes(result, "info", "volume")
+    val symbol = fromBytes(result, "info", "symbol")
+
+    StockType(date, open, high, low, close, volume, adjClose, symbol)
   }
 
 }
